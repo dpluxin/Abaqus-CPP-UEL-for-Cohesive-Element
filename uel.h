@@ -30,5 +30,6 @@ public:
 #include "src/ToolKit.h"
 #include "src/Node.h"
 #include "src/CohesiveMaterial.h"
+#include "src/Element.h"
 #include "src/CohesiveElement.h"
 #include "src/Mesh.h"
