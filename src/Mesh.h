@@ -7,7 +7,7 @@ private:
     Mesh() {} // Private constructor to prevent direct instantiation
     std::mutex mtx;
     std::map<int, std::shared_ptr<Node>> nodes; // Map of nodes by ID
-    std::map<int, std::shared_ptr<CohesiveElement>> elements; // Map of elements by ID
+    std::map<int, std::shared_ptr<Element>> elements; // Map of elements by ID (polymorphic)
 public:
     // Delete copy constructor and assignment operator to prevent copies
     Mesh(const Mesh&) = delete;
@@ -26,8 +26,11 @@ public:
     void addNode(int nodeId, const std::vector<double>& coordinates) {
         nodes[nodeId] = std::make_shared<Node>(nodeId, coordinates);
     }
-    void addElement(int elementId, const std::vector<int>& nodeIds) {
-        std::vector<std::shared_ptr<Node>> elementNodes; // Gather node pointers
+    // Element creation via factory: pass a type string ("COHESIVE", "SOLID", etc.)
+    void addElement(int elementId, const std::string& elementType,
+                    const std::vector<int>& nodeIds) {
+        // Gather node pointers
+        std::vector<std::shared_ptr<Node>> elementNodes;
         for (int nodeId : nodeIds) {
             if (nodes.find(nodeId) != nodes.end()){
                 elementNodes.push_back(nodes[nodeId]);
@@ -35,7 +38,15 @@ public:
             std::cerr << "Node ID " << nodeId << " not found!\n";
 			}
         }
-        elements[elementId] = std::make_shared<CohesiveElement>(elementId, elementNodes);
+        // adding elemement by type indicators
+        if (elementType == "COHESIVE") {
+            // Static type of elements[elementId] is std::shared_ptr<Element>&
+            // Dynamic type of the object it points to is CohesiveElement.
+            elements[elementId] = std::make_shared<CohesiveElement>(elementId, elementNodes);
+        } else {
+            // other types should be followed here
+        }
+
     }
     // getter of node and element by ID
     std::shared_ptr<Node> getNode(int nodeId) const {
@@ -45,7 +56,7 @@ public:
             return nullptr; // Return nullptr if the nodeId is invalid
         }
     }
-    std::shared_ptr<CohesiveElement> getElement(int elementId) const {
+    std::shared_ptr<Element> getElement(int elementId) const {
         try {
             return elements.at(elementId); // Throws if elementId is not in the map
         } catch (const std::out_of_range&) {

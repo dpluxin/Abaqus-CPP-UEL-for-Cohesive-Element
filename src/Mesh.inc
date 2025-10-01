@@ -123,7 +123,8 @@ void Mesh::readModelData(char* currentDir){
                 while (element_stream >> comma >> nodeId) {
                     nodeIds.push_back(nodeId);
                 }
-                addElement(elementId, nodeIds);
+                std::string elementType = "COHESIVE";
+                addElement(elementId, elementType, nodeIds);
             }
         }
 
@@ -206,61 +207,73 @@ void Mesh::outputMesh(char* outDir, int kinc){
     // Separation
     vtkFile << "VECTORS separation double\n";
     for (const auto& [id, element] : elements) {
-        const auto& sdvs = element->getSdvs('I');
-        std::vector<double> avgSeparation(3, 0.0); // Assuming 3D vectors
-        int numIntegrationPoints = sdvs.size();
-        for (const auto& sdv : sdvs) {
-            for (size_t i = 0; i < avgSeparation.size(); ++i) {
-                avgSeparation[i] += sdv->separ[i];
+        // check whether it is cohesive element using runtime cast
+        if(auto coh = std::dynamic_pointer_cast<CohesiveElement>(element)){
+            const auto& sdvs = coh->getSdvs('I');
+            std::vector<double> avgSeparation(3, 0.0); // Assuming 3D vectors
+            int numIntegrationPoints = sdvs.size();
+            for (const auto& sdv : sdvs) {
+                for (size_t i = 0; i < avgSeparation.size(); ++i) {
+                    avgSeparation[i] += sdv->separ[i];
+                }
             }
+            for (double& val : avgSeparation) {
+                val /= numIntegrationPoints;
+            }
+            vtkFile << avgSeparation[0] << " " << avgSeparation[1] << " " << avgSeparation[2] << "\n";
         }
-        for (double& val : avgSeparation) {
-            val /= numIntegrationPoints;
-        }
-        vtkFile << avgSeparation[0] << " " << avgSeparation[1] << " " << avgSeparation[2] << "\n";
     }
 
     // Traction
     vtkFile << "VECTORS traction double\n";
     for (const auto& [id, element] : elements) {
-        const auto& sdvs = element->getSdvs('I');
-        std::vector<double> avgTraction(3, 0.0); // Assuming 3D vectors
-        int numIntegrationPoints = sdvs.size();
-        for (const auto& sdv : sdvs) {
-            for (size_t i = 0; i < avgTraction.size(); ++i) {
-                avgTraction[i] += sdv->tract[i];
+        // check whether it is cohesive element using runtime cast
+        if(auto coh = std::dynamic_pointer_cast<CohesiveElement>(element)){
+            const auto& sdvs = coh->getSdvs('I');
+            std::vector<double> avgTraction(3, 0.0); // Assuming 3D vectors
+            int numIntegrationPoints = sdvs.size();
+            for (const auto& sdv : sdvs) {
+                for (size_t i = 0; i < avgTraction.size(); ++i) {
+                    avgTraction[i] += sdv->tract[i];
+                }
             }
+            for (double& val : avgTraction) {
+                val /= numIntegrationPoints;
+            }
+            vtkFile << avgTraction[0] << " " << avgTraction[1] << " " << avgTraction[2] << "\n";
         }
-        for (double& val : avgTraction) {
-            val /= numIntegrationPoints;
-        }
-        vtkFile << avgTraction[0] << " " << avgTraction[1] << " " << avgTraction[2] << "\n";
     }
 
     // Damage
     vtkFile << "SCALARS damage double\n";
     vtkFile << "LOOKUP_TABLE default\n";
     for (const auto& [id, element] : elements) {
-        const auto& sdvs = element->getSdvs('I');
-        double avgDamage = 0.0;
-        int numIntegrationPoints = sdvs.size();
-        for (const auto& sdv : sdvs) {
-            avgDamage += sdv->damage;
+        // check whether it is cohesive element using runtime cast
+        if(auto coh = std::dynamic_pointer_cast<CohesiveElement>(element)){
+            const auto& sdvs = coh->getSdvs('I');
+            double avgDamage = 0.0;
+            int numIntegrationPoints = sdvs.size();
+            for (const auto& sdv : sdvs) {
+                avgDamage += sdv->damage;
+            }
+            avgDamage /= numIntegrationPoints;
+            vtkFile << avgDamage << "\n";
         }
-        avgDamage /= numIntegrationPoints;
-        vtkFile << avgDamage << "\n";
     }
 
     // FailureStatus
     vtkFile << "SCALARS FailureStatus double\n";
     vtkFile << "LOOKUP_TABLE default\n";
     for (const auto& [id, element] : elements) {
-        const auto& sdvs = element->getSdvs('I');
-        SolutionVariable::Status FailureStatus = SolutionVariable::Intact;
-        for (const auto& sdv : sdvs) {
-            FailureStatus = std::max(FailureStatus, sdv->currentStatus);
+        // check whether it is cohesive element using runtime cast
+        if(auto coh = std::dynamic_pointer_cast<CohesiveElement>(element)){
+            const auto& sdvs = coh->getSdvs('I');
+            SolutionVariable::Status FailureStatus = SolutionVariable::Intact;
+            for (const auto& sdv : sdvs) {
+                FailureStatus = std::max(FailureStatus, sdv->currentStatus);
+            }
+            vtkFile << FailureStatus << "\n";
         }
-        vtkFile << FailureStatus << "\n";
     }
 
     vtkFile.close();
